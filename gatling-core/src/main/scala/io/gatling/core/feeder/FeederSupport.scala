@@ -51,14 +51,30 @@ trait FeederSupport extends ResourceCache {
       configuration: GatlingConfiguration
   ): FileBasedFeederBuilder[String] =
     cachedResource(filePath) match {
-      case Success(resource) => SourceFeederBuilder[String](new SeparatedValuesFeederSource(resource, separator, quoteChar), configuration)
-      case Failure(message)  => throw newStacklessFileNotFoundException(message)
+      case Success(resource) =>
+        SourceFeederBuilder[String](
+          new FileLinesFeederSource(
+            "csv",
+            hasHeaderLine = true,
+            resource,
+            SeparatedValuesParser.feederFactory(separator, quoteChar, configuration.core.charset)
+          ),
+          configuration
+        )
+      case Failure(message) => throw newStacklessFileNotFoundException(message)
     }
 
   def jsonFile(filePath: String)(implicit jsonParsers: JsonParsers, configuration: GatlingConfiguration): FileBasedFeederBuilder[Any] =
     cachedResource(filePath) match {
       case Success(resource) => SourceFeederBuilder(new JsonFileFeederSource(resource, jsonParsers), configuration)
       case Failure(message)  => throw newStacklessFileNotFoundException(message)
+    }
+
+  def jsonlFile(filePath: String)(implicit jsonParsers: JsonParsers, configuration: GatlingConfiguration): FileBasedFeederBuilder[Any] =
+    cachedResource(filePath) match {
+      case Success(resource) =>
+        SourceFeederBuilder[Any](new FileLinesFeederSource("jsonl", hasHeaderLine = false, resource, JsonlParser.feederFactory(jsonParsers)), configuration)
+      case Failure(message) => throw newStacklessFileNotFoundException(message)
     }
 
   private def newStacklessFileNotFoundException(message: String): FileNotFoundException =
